@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="csrf-token" content="{{ csrf_token }}" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mini GPT UI</title>
+    <style>
+        /* Base & Reset */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        html, body {
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f7fb;
+            color: #1a1a1a;
+        }
+        @font-face {
+            font-family: 'Inter';
+            font-style: normal;
+            font-weight: 400;
+            src: url(https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2) format('woff2');
+        }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* Container */
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100% - 70px);
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            width: 100%;
+            background-color: #ffffff;
+            padding: 15px 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background-color: #4f46e5;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Chat layout */
+        .chat-layout {
+            display: flex;
+            height: 100%;
+            gap: 20px;
+        }
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* Input area */
+        .input-area {
+            width: 100%;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .input-area textarea {
+            width: 100%;
+            min-height: 120px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 15px;
+            resize: none;
+            background-color: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+            line-height: 1.5;
+        }
+        .input-area textarea:focus {
+            outline: none;
+            border-color: #a5b4fc;
+            box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.3);
+        }
+        .input-area button {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            padding: 8px 16px;
+            background-color: #4f46e5;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .input-area button:hover {
+            background-color: #4338ca;
+            transform: translateY(-1px);
+        }
+        .input-area button:active {
+            transform: translateY(0);
+        }
+        .send-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Chat messages */
+        .chat-box {
+            flex: 1;
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+        }
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: #e0e7ff;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+            font-size: 14px;
+        }
+        .message-content {
+            flex: 1;
+        }
+        .message-role {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+            color: #4f46e5;
+        }
+        .message-text {
+            line-height: 1.6;
+            font-size: 15px;
+            color: #1f2937;
+            white-space: pre-wrap;
+        }
+        .user-message .message-avatar {
+            background-color: #eef2ff;
+        }
+        .user-message .message-role {
+            color: #6366f1;
+        }
+
+        /* Loader (spinner) */
+        .loader {
+            border: 3px solid rgba(79, 70, 229, 0.1);
+            border-top: 3px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Highlight panels container */
+        #highlight-container {
+            width: 320px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .panels-header {
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .panels-header h2 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #4f46e5;
+            margin: 0;
+        }
+        .panels-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        /* Individual highlight panel */
+        .highlight-panel {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 12px 16px;
+            background-color: #f9fafb;
+            color: #4f46e5;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .panel-header:hover {
+            background-color: #f3f4f6;
+        }
+        .panel-body {
+            padding: 12px 16px;
+            display: none;
+            white-space: pre-wrap;
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.5;
+            background-color: white;
+        }
+        .panel-body.visible {
+            display: block;
+        }
+        .collapse-icon {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.2s ease;
+        }
+        .panel-header.active .collapse-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+        .empty-icon {
+            width: 48px;
+            height: 48px;
+            background-color: #eef2ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            color: #4f46e5;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .chat-layout {
+                flex-direction: column;
+            }
+            #highlight-container {
+                width: 100%;
+                max-height: 300px;
+            }
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            header {
+                padding: 12px 20px;
+            }
+            .chat-messages {
+                padding: 15px;
+            }
+            .message {
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span class="logo-icon">AI</span> Mini GPT</h1>
+    </header>
+
+    <div class="container">
+        <div class="chat-layout">
+            <div class="chat-main">
+                <!-- Chat messages area -->
+                <div class="chat-box">
+                    <div class="chat-messages" id="chat-messages">
+                        <div class="message">
+                            <div class="message-avatar">AI</div>
+                            <div class="message-content">
+                                <div class="message-role">Assistant</div>
+                                <div class="message-text">
+                                    Hello! How can I assist you today? Highlight any text in my responses to create focused mini-windows.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User input area -->
+                <div class="input-area">
+                    <textarea id="prompt" placeholder="Type your message here..." rows="3"></textarea>
+                    <button onclick="sendPrompt()">
+                        <svg class="send-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Send
+                    </button>
+                </div>
+            </div>
+
+            <!-- Container for highlight-driven mini-panels -->
+            <div id="highlight-container">
+                <div class="panels-header">
+                    <h2>Mini Windows</h2>
+                </div>
+                <div class="panels-body" id="panels-body">
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 10H8.01M12 10H12.01M16 10H16.01M9 16H5C3.89543 16 3 15.1046 3 14V6C3 4.89543 3.89543 4 5 4H19C20.1046 4 21 4.89543 21 6V14C21 15.1046 20.1046 16 19 16H14L9 21V16Z" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <p>Highlight text in the chat to create focused mini-windows here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utility: Get CSRF token from meta tag
+        function getCSRFToken() {
+            return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        }
+
+        // Show loader inside a given container element
+        function showLoaderIn(container) {
+            container.innerHTML = '<div class="loader"></div>';
+        }
+
+        // Toggle panel body visibility (minimize/maximize)
+        function togglePanelBody(panel) {
+            const header = panel.querySelector('.panel-header');
+            const body = panel.querySelector('.panel-body');
+            header.classList.toggle('active');
+            body.classList.toggle('visible');
+        }
+
+        // Main function to send prompt: either for the primary chat or for a highlight panel
+        function sendPrompt(text = null) {
+            if (!text) {
+                // === Main Prompt ===
+                const prompt = document.getElementById("prompt").value.trim();
+                if (!prompt) return;
+
+                const chatMessages = document.getElementById("chat-messages");
+
+                // Add user message
+                const userMessage = document.createElement("div");
+                userMessage.className = "message user-message";
+                userMessage.innerHTML = `
+                    <div class="message-avatar">You</div>
+                    <div class="message-content">
+                        <div class="message-role">You</div>
+                        <div class="message-text">${prompt}</div>
+                    </div>
+                `;
+                chatMessages.appendChild(userMessage);
+
+                // Add loading indicator for AI response
+                const aiMessage = document.createElement("div");
+                aiMessage.className = "message";
+                aiMessage.innerHTML = `
+                    <div class="message-avatar">AI</div>
+                    <div class="message-content">
+                        <div class="message-role">Assistant</div>
+                        <div class="message-text"><div class="loader"></div></div>
+                    </div>
+                `;
+                chatMessages.appendChild(aiMessage);
+
+                // Grab the .message-text element we just inserted (contains loader)
+                const aiTextContainer = aiMessage.querySelector('.message-text');
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Clear input
+                document.getElementById("prompt").value = '';
+
+                fetch('/ask/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: new URLSearchParams({ prompt: prompt })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Replace only this AI message’s text (loader) with the actual response
+                    aiTextContainer.innerHTML = data.response;
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                })
+                .catch(err => {
+                    aiTextContainer.innerHTML = "Error fetching response.";
+                    console.error(err);
+                });
+
+            } else {
+                // === Highlight Prompt ===
+                const panelsBody = document.getElementById("panels-body");
+
+                // Remove empty state if it exists
+                const emptyState = panelsBody.querySelector('.empty-state');
+                if (emptyState) {
+                    panelsBody.removeChild(emptyState);
+                }
+
+                // Create panel elements
+                const panel = document.createElement("div");
+                panel.classList.add("highlight-panel");
+
+                const header = document.createElement("div");
+                header.classList.add("panel-header", "active");
+                let title = text.length > 30 ? text.slice(0, 27) + "..." : text;
+                header.innerHTML = `
+                    ${title}
+                    <svg class="collapse-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 9L12 16L5 9" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                `;
+                panel.appendChild(header);
+
+                const body = document.createElement("div");
+                body.classList.add("panel-body", "visible");
+                panel.appendChild(body);
+
+                panelsBody.insertBefore(panel, panelsBody.firstChild);
+
+                // Show loader inside this panel body
+                showLoaderIn(body);
+
+                // Toggle on header click
+                header.addEventListener("click", () => togglePanelBody(panel));
+
+                // Fetch AI response for highlighted text
+                fetch('/ask/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCSRFToken(),
+                    },
+                    body: new URLSearchParams({ prompt: text })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    body.innerText = data.response;
+                })
+                .catch(err => {
+                    body.innerText = "Error fetching response.";
+                    console.error(err);
+                });
+            }
+        }
+
+        // Detect selection inside chat-messages area
+        function handleSelection(e) {
+            const selection = window.getSelection().toString().trim();
+            if (selection.length > 0) {
+                sendPrompt(selection);
+                // Clear selection so user sees the panel creation
+                window.getSelection().removeAllRanges();
+            }
+        }
+
+        // Add event listener for Enter key (with Shift for newline)
+        document.getElementById("prompt").addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPrompt();
+            }
+        });
+
+        // Attach selection listener to chat-messages container
+        document.getElementById('chat-messages').addEventListener('mouseup', handleSelection);
+    </script>
+</body>
+</html>
