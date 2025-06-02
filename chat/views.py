@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 import openai
 
-openai.api_key = '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'
+openai.api_key = ''
 
 def chat_page(request):
     return render(request, 'chat/index.html')
